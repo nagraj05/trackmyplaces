@@ -2,7 +2,7 @@
 
 import 'leaflet/dist/leaflet.css'
 import { useEffect } from 'react'
-import { MapContainer, TileLayer, useMapEvents } from 'react-leaflet'
+import { MapContainer, TileLayer, useMap, useMapEvents } from 'react-leaflet'
 import MarkerClusterGroup from 'react-leaflet-cluster'
 import PlacePin from './PlacePin'
 import type { Place } from '@/types/place'
@@ -30,13 +30,26 @@ function usePinPopAnimation() {
   }, [])
 }
 
-// ─── Map click handler (must live inside MapContainer) ────────────────────
+// ─── Fly-to controller — must live inside MapContainer ────────────────────
 
-interface MapClickHandlerProps {
-  onClick: (lat: number, lng: number) => void
+interface FlyTarget {
+  lat: number
+  lng: number
+  zoom: number
 }
 
-function MapClickHandler({ onClick }: MapClickHandlerProps) {
+function FlyToController({ target }: { target: FlyTarget | null }) {
+  const map = useMap()
+  useEffect(() => {
+    if (!target) return
+    map.flyTo([target.lat, target.lng], target.zoom, { animate: true, duration: 1.2 })
+  }, [map, target])
+  return null
+}
+
+// ─── Map click handler (must live inside MapContainer) ────────────────────
+
+function MapClickHandler({ onClick }: { onClick: (lat: number, lng: number) => void }) {
   useMapEvents({
     click(e) {
       onClick(e.latlng.lat, e.latlng.lng)
@@ -52,9 +65,10 @@ export interface MapProps {
   selectedId: string | null
   onMapClick: (lat: number, lng: number) => void
   onPinClick: (place: Place) => void
+  flyTarget?: FlyTarget | null
 }
 
-export default function Map({ places, selectedId, onMapClick, onPinClick }: MapProps) {
+export default function Map({ places, selectedId, onMapClick, onPinClick, flyTarget = null }: MapProps) {
   usePinPopAnimation()
 
   return (
@@ -62,7 +76,6 @@ export default function Map({ places, selectedId, onMapClick, onPinClick }: MapP
       center={[51.505, -0.09]}
       zoom={13}
       style={{ height: '100%', width: '100%' }}
-      // Prevents default Leaflet focus outline that clashes with Tailwind resets
       attributionControl
     >
       <TileLayer
@@ -71,6 +84,7 @@ export default function Map({ places, selectedId, onMapClick, onPinClick }: MapP
         maxZoom={19}
       />
 
+      <FlyToController target={flyTarget} />
       <MapClickHandler onClick={onMapClick} />
 
       <MarkerClusterGroup chunkedLoading>
